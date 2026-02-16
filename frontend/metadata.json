@@ -1,0 +1,5 @@
+{
+  "name": "ScrapeToCSV Pro",
+  "description": "A professional tool to fetch website data and transform it into structured Shopify-ready CSV files using AI-driven extraction.",
+  "requestFramePermissions": []
+}
