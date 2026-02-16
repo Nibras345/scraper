@@ -1,8 +1,8 @@
-import Groq from 'groq-sdk';
 import dotenv from 'dotenv';
-import { logger } from '../utils/logger';
-
 dotenv.config();
+
+import Groq from 'groq-sdk';
+import { logger } from '../utils/logger';
 
 const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY,

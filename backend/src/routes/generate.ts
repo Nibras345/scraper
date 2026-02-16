@@ -9,24 +9,33 @@ import { renderPage } from '../services/browser';
 const router = Router();
 
 interface GenerateRequestBody {
-    url: string;
+    url?: string;
+    data?: string;
     fields: string;
 }
 
 router.post('/', async (req: Request<{}, {}, GenerateRequestBody>, res: Response) => {
-    const { url, fields } = req.body;
+    const { url = '', data, fields } = req.body;
 
-    if (!url || !fields) {
-        return res.status(400).json({ error: 'url and fields are required' });
+    if (!fields) {
+        return res.status(400).json({ error: 'fields is required' });
     }
 
     try {
-        // 1. Render page with Puppeteer
-        logger.info('→ Starting Puppeteer rendering');
-        const renderedHtml = await renderPage(url);
+        let finalHtml = data;
+
+        // Only render if data is not provided
+        if (!finalHtml && url) {
+            logger.info('→ Starting Puppeteer rendering');
+            finalHtml = await renderPage(url);
+        }
+
+        if (!finalHtml) {
+            return res.status(400).json({ error: 'Either url or data (HTML) must be provided' });
+        }
 
         // 2. Call Grok AI
-        const extractedData = await extractFields(url, renderedHtml, fields);
+        const extractedData = await extractFields(url, finalHtml, fields);
 
         // 2. Save to database
         logger.info('Saving to database');
