@@ -19,10 +19,12 @@ export const extractFields = async (url: string, html: string, fields: string) =
                 },
                 {
                     role: 'user',
-                    content: `URL: ${url}\nFields to extract: ${fields}\nHTML Data: ${html.substring(0, 30000)}` // Safeguard against prompt length
+                    content: `URL: ${url}\nFields to extract: ${fields}\nHTML Data: ${html.substring(0, 8000)}` // Safeguard against prompt length
                 }
             ],
-            model: 'llama-3.3-70b-versatile',
+            temperature: 0,      // 🔥 deterministic output (best for extraction)
+            max_tokens: 600,     // 🔥 limit response size (avoid TPM error)
+            model: "llama-3.1-8b-instant",
             response_format: { type: 'json_object' }
         });
 

@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { extractShopifyProduct } from '../services/parser';
 import { logger } from '../utils/logger';
 import { extractFields } from '../services/ai';
 import { convertToCSV } from '../services/csv';
@@ -34,8 +35,15 @@ router.post('/', async (req: Request<{}, {}, GenerateRequestBody>, res: Response
             return res.status(400).json({ error: 'Either url or data (HTML) must be provided' });
         }
 
-        // 2. Call Grok AI
-        const extractedData = await extractFields(url, finalHtml, fields);
+        // 2️⃣ Try direct Shopify extraction first
+        let extractedData = extractShopifyProduct(finalHtml);
+
+        if (!extractedData) {
+            logger.info('No direct product JSON found → Falling back to AI');
+            extractedData = await extractFields(url, finalHtml, fields);
+        } else {
+            logger.success('Product JSON extracted directly (No AI used)');
+        }
 
         // 2. Save to database
         logger.info('Saving to database');
