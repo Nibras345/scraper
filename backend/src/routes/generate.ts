@@ -6,7 +6,6 @@ import { convertToCSV } from '../services/csv';
 import ScrapeHistory from '../models/ScrapeHistory';
 
 import { renderPage } from '../services/browser';
-import { strictLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -16,7 +15,7 @@ interface GenerateRequestBody {
     fields: string;
 }
 
-router.post('/', strictLimiter, async (req: Request<{}, {}, GenerateRequestBody>, res: Response) => {
+router.post('/', async (req: Request<{}, {}, GenerateRequestBody>, res: Response) => {
     const { url = '', data, fields } = req.body;
 
     if (!fields) {

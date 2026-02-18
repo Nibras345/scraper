@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { logger } from '../utils/logger';
 import { renderPage } from '../services/browser';
-import { strictLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -9,7 +8,7 @@ interface FetchRequestBody {
   url: string;
 }
 
-router.post('/', strictLimiter, async (req: Request<{}, {}, FetchRequestBody>, res: Response) => {
+router.post('/', async (req: Request<{}, {}, FetchRequestBody>, res: Response) => {
   const { url } = req.body;
 
   if (!url || !url.trim()) {
