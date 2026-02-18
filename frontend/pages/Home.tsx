@@ -233,7 +233,7 @@ const Home: React.FC = () => {
 
       {/* Footer */}
       <footer className="mt-20 mb-8 text-neutral-400 dark:text-neutral-600 text-sm">
-        <p>&copy; {new Date().getFullYear()} ScrapeToCSV Pro. Minimalist Data Engineering.</p>
+        <p>&copy; {new Date().getFullYear()} ScrapeToCSV Pro. all rights reserved by Nibras Siddiqi.</p>
       </footer>
     </div>
   );
