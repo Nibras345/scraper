@@ -12,15 +12,17 @@ const Home: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobProgress, setJobProgress] = useState<{ total: number; scraped: number; status: string } | null>(null);
 
-  // Initialize theme from system or local storage
+  const API_BASE = 'http://localhost:5000';
+
+  // Initialize theme...
   useEffect(() => {
     const isDark = localStorage.getItem('theme') === 'dark' || 
                    (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
     setDarkMode(isDark);
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    }
+    if (isDark) document.documentElement.classList.add('dark');
   }, []);
 
   const toggleDarkMode = () => {
@@ -35,14 +37,10 @@ const Home: React.FC = () => {
     }
   };
 
-  // Fetch HTML/content from backend
+  // Discovery (Count Mode)
   const handleFetch = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!url.trim()) {
-      setError('Please enter a valid URL');
-      return;
-    }
+    if (!url.trim()) return setError('Please enter a valid URL');
 
     setIsFetching(true);
     setError(null);
@@ -50,72 +48,55 @@ const Home: React.FC = () => {
     setScrapedData('');
 
     try {
-      const response = await fetch('http://localhost:5000/fetch', {
+      const response = await fetch(`${API_BASE}/fetch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Fetch failed: ${response.statusText}`);
-      }
-
-      const result: FetchResponse = await response.json();
+      if (!response.ok) throw new Error('Discovery failed');
+      const result = await response.json();
+      
       setScrapedData(result.data);
-
-      setSuccess('Data fetched successfully!');
+      setSuccess(`Discovery finished! ${result.totalProducts} products identified.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Fetch failed.');
+      setError(err instanceof Error ? err.message : 'Discovery failed.');
     } finally {
       setIsFetching(false);
     }
   };
 
-  // Send HTML + user prompt to AI and download CSV
+  // Extract & Export
   const handleGenerateCSV = async () => {
-    if (!scrapedData.trim()) {
-      setError('No scraped data available.');
-      return;
-    }
-
-    if (!prompt.trim()) {
-      setError('Please enter what fields you want.');
-      return;
-    }
+    if (!url.trim()) return setError('URL is required.');
+    if (!prompt.trim()) return setError('Please enter what fields you want.');
 
     setIsGenerating(true);
     setError(null);
     setSuccess(null);
 
     try {
-      const response = await fetch('http://localhost:5000/generate', {
+      const response = await fetch(`${API_BASE}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url,
-          data: scrapedData,
-          fields: prompt,
-        }),
+        body: JSON.stringify({ url, fields: prompt }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Generation failed: ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error('Extraction failed');
 
       const blob = await response.blob();
-
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.setAttribute('download', 'shopify_import.csv');
+      link.setAttribute('download', `scraped_products.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(downloadUrl);
 
-      setSuccess('CSV downloaded successfully!');
+      setSuccess('CSV generated and downloaded successfully!');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'CSV generation failed.');
+      setError(err instanceof Error ? err.message : 'Extraction failed.');
     } finally {
       setIsGenerating(false);
     }
@@ -146,13 +127,13 @@ const Home: React.FC = () => {
         {/* Section 1: URL Input */}
         <section className="bg-white dark:bg-neutral-800/50 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm transition-all hover:shadow-md">
           <h2 className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-4 uppercase tracking-wider flex items-center gap-2">
-            <Globe size={14} /> 1. Source URL
+            <Globe size={14} /> 1. Source URL (Base URL)
           </h2>
           <form onSubmit={handleFetch} className="flex flex-col sm:flex-row gap-3">
             <input
               type="url"
               required
-              placeholder="https://example.com/product-page"
+              placeholder="https://example.com/ (e.g., Base URL)"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               className="flex-1 px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-100 transition-all"
@@ -162,7 +143,7 @@ const Home: React.FC = () => {
               disabled={isFetching || !url}
               className="px-8 py-3 bg-neutral-900 dark:bg-neutral-50 text-white dark:text-neutral-900 font-semibold rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 min-w-[140px]"
             >
-              {isFetching ? <Loader2 size={18} className="animate-spin" /> : 'Fetch Data'}
+              {isFetching ? <Loader2 size={18} className="animate-spin" /> : 'Start Discovery'}
             </button>
           </form>
         </section>
@@ -179,29 +160,29 @@ const Home: React.FC = () => {
           </div>
         )}
 
-        {/* Section 2: Scraped Data Area */}
+        {/* Section 2: Discovery ResultsArea */}
         <section className={`transition-all duration-300 ${scrapedData ? 'opacity-100 scale-100' : 'opacity-30 pointer-events-none grayscale'}`}>
           <h2 className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-4 uppercase tracking-wider flex items-center gap-2">
-            <ClipboardList size={14} /> 2. Raw Scraped Content
+            <ClipboardList size={14} /> 2. Discovery Result (Raw Content)
           </h2>
           <textarea
+            readOnly
             value={scrapedData}
-            onChange={(e) => setScrapedData(e.target.value)}
-            placeholder="Fetched data will appear here..."
-            className="w-full h-64 px-4 py-4 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-100 transition-all resize-none shadow-sm"
+            placeholder="Discovery results will appear here after crawling..."
+            className="w-full h-32 px-4 py-4 rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-mono text-sm focus:outline-none transition-all resize-none shadow-sm"
           />
         </section>
 
         {/* Section 3: Generate CSV */}
         <section className={`bg-white dark:bg-neutral-800/50 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-700 shadow-sm transition-all ${scrapedData ? 'opacity-100 translate-y-0' : 'opacity-30 translate-y-4 pointer-events-none'}`}>
           <h2 className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-4 uppercase tracking-wider flex items-center gap-2">
-            <Download size={14} /> 3. Shopify CSV Prompt
+            <Download size={14} /> 3. Extract Fields & Export CSV
           </h2>
           <div className="space-y-4">
             <div className="relative">
               <input
                 type="text"
-                placeholder="What information do you want from this data? (e.g., Title, SKU, Price, Color)"
+                placeholder="AI Prompt: What fields to extract? (e.g., Title, SKU, Color)"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 className="w-full px-4 py-4 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-100 transition-all"
@@ -215,7 +196,7 @@ const Home: React.FC = () => {
               {isGenerating ? (
                 <>
                   <Loader2 size={20} className="animate-spin" />
-                  Processing Extraction...
+                  Generating CSV (Please wait...)
                 </>
               ) : (
                 <>

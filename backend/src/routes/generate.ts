@@ -8,65 +8,71 @@ import ScrapeHistory from '../models/ScrapeHistory';
 import { renderPage } from '../services/browser';
 import { rateLimiter } from '../middleware/rateLimiter';
 
+import { CrawlerService } from '../services/crawler';
+
+import { getBrowser } from '../services/browser';
+
 const router = Router();
 
 interface GenerateRequestBody {
-    url?: string;
-    data?: string;
+    url: string;
     fields: string;
 }
 
 router.post('/', rateLimiter, async (req: Request<{}, {}, GenerateRequestBody>, res: Response) => {
-    const { url = '', data, fields } = req.body;
+    const { url, fields } = req.body;
 
-    if (!fields) {
-        return res.status(400).json({ error: 'fields is required' });
-    }
+    if (!url) return res.status(400).json({ error: 'url is required' });
+    if (!fields) return res.status(400).json({ error: 'fields is required' });
 
+    let browser;
     try {
-        let finalHtml = data;
+        logger.info(`→ Starting Synchronous Extraction for: ${url}`);
+        browser = await getBrowser();
 
-        // Only render if data is not provided
-        if (!finalHtml && url) {
-            logger.info('→ Starting Puppeteer rendering');
-            finalHtml = await renderPage(url);
+        // 1. Discover all links first
+        const links = await CrawlerService.deepCrawl(url, browser);
+
+        logger.info(`→ Found ${links.length} products to scrape.`);
+
+        const allVariants: any[] = [];
+
+        // 2. Scrape each link synchronously using the SAME browser instance
+        const linksToScrape = links.slice(0, 50);
+
+        for (const link of linksToScrape) {
+            try {
+                const html = await renderPage(link, browser);
+                let variants = extractShopifyProduct(html, link);
+
+                if (!variants) {
+                    const aiData = await extractFields(link, html, fields);
+                    variants = Array.isArray(aiData) ? aiData : [aiData];
+                }
+
+                allVariants.push(...variants);
+            } catch (err) {
+                logger.error(`Skipping ${link} due to error`, err);
+            }
         }
 
-        if (!finalHtml) {
-            return res.status(400).json({ error: 'Either url or data (HTML) must be provided' });
+        if (allVariants.length === 0) {
+            return res.status(404).json({ error: 'No products could be extracted.' });
         }
-
-        // 2️⃣ Try direct Shopify extraction first
-        let extractedData = extractShopifyProduct(finalHtml);
-
-        if (!extractedData) {
-            logger.info('No direct product JSON found → Falling back to AI');
-            extractedData = await extractFields(url, finalHtml, fields);
-        } else {
-            logger.success('Product JSON extracted directly (No AI used)');
-        }
-
-        // 2. Save to database
-        logger.info('Saving to database');
-        await ScrapeHistory.create({
-            url,
-            fields,
-            result: extractedData
-        });
 
         // 3. Convert to CSV
-        logger.info('CSV generating');
-        const csv = convertToCSV(extractedData);
+        const csv = convertToCSV(allVariants);
 
         // 4. Send back as file
-        logger.info('File sent');
         res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', 'attachment; filename=shopify_products.csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=extracted_products.csv');
         res.status(200).send(csv);
 
     } catch (error) {
         logger.error('Generation failed', error);
-        res.status(500).json({ error: 'AI generation or CSV conversion failed' });
+        res.status(500).json({ error: 'Failed to perform synchronous extraction' });
+    } finally {
+        if (browser) await browser.close();
     }
 });
 

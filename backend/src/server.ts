@@ -7,6 +7,7 @@ import { logger } from './utils/logger';
 import { connectDB } from './config/db';
 import fetchRoutes from './routes/fetch';
 import generateRoutes from './routes/generate';
+import jobRoutes from './routes/job';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -20,6 +21,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // Routes
 app.use('/fetch', fetchRoutes);
 app.use('/generate', generateRoutes);
+app.use('/jobs', jobRoutes);
 
 // Health Check
 app.get('/', (req: Request, res: Response) => {

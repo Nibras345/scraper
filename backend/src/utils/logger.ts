@@ -8,6 +8,9 @@ export const logger = {
     success: (message: string) => {
         console.log(`✅ ${message}`);
     },
+    warn: (message: string) => {
+        console.warn(`⚠️ ${message}`);
+    },
     startup: (message: string) => {
         console.log(`🚀 ${message}`);
     }
