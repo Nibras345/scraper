@@ -14,6 +14,30 @@ ScrapeToCSV PRO is a robust, enterprise-grade automated scraping platform. It le
 
 ---
 
+## ⚙️ How it Works - Internal Workflow
+
+### 1. Job Orchestration
+When a user initiates a crawl, the **Orchestrator** takes over. It manages the job state in MongoDB and coordinates between discovery and extraction phases, ensuring fault tolerance and background execution. This allows users to start large tasks and close the tab without losing progress.
+
+### 2. Deep Discovery (The Crawler)
+The **Crawler Service** behaves like a human browsing a store. It:
+- **Automates Pagination**: Intelligent detection of "Next" buttons and numerical page query parameters.
+- **Triggers Lazy Loading**: Uses an intelligent **Auto-Scrolling** mechanism to force images and lazy-loaded products to appear in the DOM.
+- **Strict Pattern Matching**: Uses regex-based logic to distinguish between actual product links and navigational links (collections, tags, contact pages).
+
+### 3. High-Fidelity Rendering
+By utilizing **Puppeteer**, the system renders the full DOM for every page. This is critical for modern Shopify themes that rely heavily on JavaScript for product variant selection and price display, which simple HTML parsers often miss.
+
+### 4. Hybrid AI Extraction (Parser-First, AI-Fallback)
+Our extraction engine uses a two-tier system:
+- **Deterministic Layer-1**: A high-speed Shopify parser that targets structured JSON-LD and standard Shopify Liquid schemas for 100% accuracy on standard stores.
+- **AI-Driven Layer-2**: For non-standard, customized, or obfuscated stores, the system feeds sanitized HTML snippets to **Groq (Llama 3.1)**. The AI dynamically maps unstructured page data to the required Shopify CSV fields.
+
+### 5. Efficient Batch Processing
+Products are processed in **parallel batches** (controlled concurrency). The orchestrator manages memory and network limits, ensuring the scraper remains stable even when handling hundreds of products simultaneously.
+
+---
+
 ## 🛠 Technologies Used
 
 ### Backend
